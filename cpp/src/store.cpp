@@ -134,6 +134,9 @@ void Store::insert_block(const std::string& coin, int64_t height, const std::str
     Stmt e(db_, "INSERT OR IGNORE INTO swap_events(coin,height,block_hash,block_time,txid,vin,kind,protocol,confidence,secret_hash,secret,lock_val,script_sha256,amount_sat,"
                 "prev_txid,prev_vout,sequence,tx_nin,tx_nout,tx_version,tx_locktime,outputs,lock_tx,lock_height,lock_time,extra) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
     Stmt up(db_, "UPDATE swap_events SET confidence='certain', kind='adaptor_refund_tx' WHERE coin=? AND txid=? AND kind IN ('adaptor_refund_tx','adaptor_lock_spend')");
+    // the spend may already be stored (an older range scanned after the tip): upgrade the refund tx at insert time (2026-11-20, same SQL as chain_swap_scan.py)
+    Stmt up2(db_, "UPDATE swap_events SET confidence='certain' WHERE coin=? AND txid=? AND kind='adaptor_refund_tx' AND EXISTS "
+                  "(SELECT 1 FROM swap_events s WHERE s.coin=? AND s.block_time>=? AND s.kind='adaptor_refund_spend' AND s.prev_txid=?)");
     for (auto& v : r.events) {
         e.bind(1, coin).bind(2, height).bind(3, hash).bind(4, time).bind(5, v.txid).bind(6, int64_t(v.vin)).bind(7, v.kind).bind(8, v.protocol).bind(9, v.confidence);
         e.bind_opt(10, v.secret_hash).bind_opt(11, v.secret).bind_opt(12, v.lock_val);
@@ -146,6 +149,7 @@ void Store::insert_block(const std::string& coin, int64_t height, const std::str
         e.bind(26, json_dump(v.extra.t == Json::T::Obj ? v.extra : Json::object()));
         e.run();
         if (v.kind == "adaptor_refund_spend") up.bind(1, coin).bind(2, v.prev_txid).run();
+        else if (v.kind == "adaptor_refund_tx") up2.bind(1, coin).bind(2, v.txid).bind(3, coin).bind(4, time).bind(5, v.txid).run();
     }
 }
 
@@ -154,6 +158,11 @@ void Store::rewind(const std::string& coin, int64_t from) {
         Stmt d(db_, std::string("DELETE FROM ") + t + " WHERE coin=? AND height>=?");
         d.bind(1, coin).bind(2, from).run();
     }
+    // a refund tx is 'certain' only while a refund spend of its output is stored: undo upgrades made by the rewound blocks (2026-11-20)
+    Stmt dn(db_, "UPDATE swap_events SET confidence='likely' WHERE coin=? AND kind='adaptor_refund_tx' AND confidence='certain' AND NOT EXISTS "
+                 "(SELECT 1 FROM swap_events s WHERE s.coin=swap_events.coin AND s.block_time>=swap_events.block_time "
+                 "AND s.kind='adaptor_refund_spend' AND s.prev_txid=swap_events.txid)");
+    dn.bind(1, coin).run();
     commit();
 }
 

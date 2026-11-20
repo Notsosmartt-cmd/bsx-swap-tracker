@@ -4,7 +4,7 @@ Two kinds of data, never mixed up on the page:
   REAL aggregates   datasets/daily_swaps.csv and datasets/validation.json (daily counts per chain and the measured quality figures; no txids,
                     addresses or per-swap rows)
   SYNTHETIC market  datasets/synthetic/ written by this script with a fixed seed: makers, offers, swaps and early lock flags drawn from a few
-                    calibrated parameters (lock-to-spend minutes p10/p50/p90 = 9.9 / 18.8 / 50.3, refund share 2.4 %, early-detection recall
+                    calibrated parameters (lock-to-spend minutes p10/p50/p90 = 9.9 / 18.8 / 50.3, refund share 6 %, early-detection recall
                     72 % and precision 96.9 %); every maker, offer and swap in it is invented
 Standard library only.  Run:  python3 demo/make_demo.py   (then open demo/index.html; no server needed)
 
@@ -22,7 +22,7 @@ PRICE = {"BTC": 60000.0, "LTC": 80.0, "XMR": 150.0, "PART": 0.5, "BCH": 400.0}  
 PAIRS = [("XMR", "BTC", 0.42), ("XMR", "LTC", 0.24), ("BTC", "XMR", 0.12), ("LTC", "XMR", 0.08), ("PART", "BTC", 0.06), ("BCH", "XMR", 0.05), ("PART", "LTC", 0.03)]
 SCRIPT_CHAIN = {"BTC", "LTC", "PART", "BCH"}   # the chain the tracker sees the lock on: the scripted (non-Monero) leg
 LOCK_MIN = (18.8, math.log(50.3 / 18.8) / 1.2816)   # lognormal median and sigma for lock -> spend minutes
-REFUND, EARLY_RECALL, EARLY_PRECISION = 0.024, 0.72, 0.969
+REFUND, EARLY_RECALL, EARLY_PRECISION = 0.06, 0.72, 0.969
 
 
 def gen():

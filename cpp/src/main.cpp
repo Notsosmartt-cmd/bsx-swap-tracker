@@ -238,6 +238,33 @@ static int selftest() {
         check(run(98, 0xFFFFFFFF) == "candidate", "recent lock lt, non-zero sequence -> candidate");
         check(run(0, 0xFFFFFFFF) == "likely", "lock lt 0, non-zero sequence -> likely");
     }
+    {   // Particl blind swaps (2026-11-20): [data, blinded dest, blinded change], values hidden; same rule as chainscan_lib.blind_outputs
+        Bytes lock(71, 0x02);
+        lock[0] = 0x52; lock[1] = 0x21; lock[35] = 0x21; lock[69] = 0x52; lock[70] = 0xAE;
+        Bytes p2pkh = {0x76, 0xA9, 0x14, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 0x88, 0xAC};
+        Bytes p2wsh(34, 0x09); p2wsh[0] = 0x00; p2wsh[1] = 0x20;
+        auto run = [&](uint32_t seq, std::vector<std::pair<int, Bytes>> outs, int64_t version) {
+            Tx t;
+            t.version = version;
+            TxIn in;
+            in.prev[0] = 7;
+            in.sequence = seq;
+            in.witness = {Bytes{}, Bytes(71, 0x30), Bytes(71, 0x30), lock};
+            t.vin.push_back(in);
+            for (auto& [pt, sc] : outs) { TxOut o; o.ptype = pt; o.script = sc; if (pt == 1) o.value = 5; t.vout.push_back(o); }
+            Lookup lk = [&](const std::string&, uint32_t) -> std::optional<PrevOut> {
+                PrevOut p; p.height = 100; p.info = Json::object(); p.info.set("lt", Json::integer(0)); return p;
+            };
+            auto r = scan_block(Family::part, 105, 0, std::vector<Tx>{t}, lk, false, 300, false);
+            return r.events.empty() ? std::string("none") : r.events[0].kind + ":" + r.events[0].confidence;
+        };
+        check(run(0, {{4, {}}, {2, p2pkh}, {2, p2pkh}}, 0xA0) == "adaptor_lock_spend:strong", "blind lock spend -> strong");
+        check(run(10, {{4, {}}, {2, p2wsh}, {2, p2pkh}}, 0xA0) == "adaptor_refund_tx:likely", "blind refund tx -> refund likely");
+        check(run(0, {{4, {}}, {2, p2pkh}, {1, p2pkh}}, 0xA0) == "adaptor_lock_spend:candidate", "blind + visible output -> candidate");
+        check(run(0, {{4, {}}, {4, {}}, {2, p2pkh}}, 0xA0) == "adaptor_lock_spend:candidate", "two data outputs -> candidate");
+        check(run(0, {{4, {}}, {2, p2pkh}, {2, p2pkh}}, 2) == "adaptor_lock_spend:candidate", "blind shape, wrong version -> candidate");
+        check(run(0xFFFFFFFF, {{4, {}}, {2, p2pkh}, {2, p2pkh}}, 0xA0) == "adaptor_lock_spend:likely", "blind, non-zero sequence -> likely");
+    }
     {   // refund output scripts: 0.18+ (IF 1 CSV DROP 2 .. ) and the older form without "1 CSV DROP" (missed until 2026-11-20)
         auto refund_kind = [&](bool old) {
             Bytes s;

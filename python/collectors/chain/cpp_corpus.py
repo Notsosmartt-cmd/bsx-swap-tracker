@@ -11,7 +11,7 @@ Canonical dump (one line each, the C++ `bsx-swap-tracker dump` must print exactl
   tx <txid> ver=<int> lt=<int> cb=<0|1>
   in <prev txid|-> <vout> <sequence> <scriptSig hex|-> w=<item hex,...|->
   out <value|-> <type> <script hex|->
-  ev <kind> <tier> <txid> <vin> <amount|->                     (scan_block events without the output index; compared from stage S1b on)
+  ev <kind> <tier> <txid> <vin> <amount|->                     (scan_block events without the output index)
 
   python3 python/collectors/chain/cpp_corpus.py --build [--coins BTC,LTC,BCH,PART]
   python3 python/collectors/chain/cpp_corpus.py --compare bin/bsx-swap-tracker [--events]
@@ -70,6 +70,7 @@ def pick_heights(coin):
         hs.update({tip[0], tip[0] - 1})
     if coin == "PART":
         hs.update({2158321, 2158570})                      # RingCT outputs and anon inputs (the blocks that first broke the parser)
+        hs.update({2187957, 2191403})                      # Particl blind swaps: a blind lock spend and a blind refund tx (2026-11-20)
     db.close()
     return sorted(hs)
 

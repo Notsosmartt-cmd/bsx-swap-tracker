@@ -224,6 +224,8 @@ def insert_block(db, coin, height, block_hash, header, txs, p2sh_rows, spends, e
                     e["tx_locktime"], json.dumps(e["outputs"]), json.dumps(e["lock_tx"]) if e["lock_tx"] else None, e["lock_height"], e["lock_time"], json.dumps(e.get("extra") or {})))
         if e["kind"] == "adaptor_refund_spend":      # the refund output was spent: its creating transaction is certainly a lock-refund transaction
             db.execute("UPDATE swap_events SET confidence='certain', kind='adaptor_refund_tx' WHERE coin=? AND txid=? AND kind IN ('adaptor_refund_tx','adaptor_lock_spend')", (coin, e["prev_txid"]))
+        elif e["kind"] == "adaptor_refund_tx":       # the spend may already be stored (an older range scanned after the tip): upgrade now (2026-11-20)
+            db.execute(REFUND_SPENT_UPGRADE, (coin, e["txid"], coin, e["block_time"], e["txid"]))
 
 
 def db_retry(db, fn, tries=40):
@@ -248,9 +250,18 @@ def make_lookup(db, coin):
     return lookup
 
 
+# a refund tx is 'certain' only while a refund spend of its output is stored (review item 9, 2026-11-20; same SQL in cpp/src/store.cpp)
+REFUND_SPENT_UPGRADE = ("UPDATE swap_events SET confidence='certain' WHERE coin=? AND txid=? AND kind='adaptor_refund_tx' AND EXISTS "
+                        "(SELECT 1 FROM swap_events s WHERE s.coin=? AND s.block_time>=? AND s.kind='adaptor_refund_spend' AND s.prev_txid=?)")
+REFUND_UNSPENT_DOWNGRADE = ("UPDATE swap_events SET confidence='likely' WHERE coin=? AND kind='adaptor_refund_tx' AND confidence='certain' AND NOT EXISTS "
+                            "(SELECT 1 FROM swap_events s WHERE s.coin=swap_events.coin AND s.block_time>=swap_events.block_time "
+                            "AND s.kind='adaptor_refund_spend' AND s.prev_txid=swap_events.txid)")
+
+
 def rewind(db, coin, from_height):
     for t in ("blocks", "p2sh_outputs", "script_spends", "swap_events"):
         db.execute("DELETE FROM %s WHERE coin=? AND height>=?" % t, (coin, from_height))
+    db.execute(REFUND_UNSPENT_DOWNGRADE, (coin,))      # an upgrade made by a refund spend in the rewound blocks is undone (2026-11-20)
     db.commit()
 
 

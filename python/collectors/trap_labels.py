@@ -23,7 +23,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from collector_settings import S as SETTINGS  # noqa: E402  data folder of the scan database (settings file or the default layout)
 db = sqlite3.connect("file:%s?mode=ro" % os.path.join(SETTINGS.data_dir, "chainscan.sqlite"), uri=True, timeout=30)
 ev = db.execute("""select coin, case when kind='adaptor_refund_tx' then 'failed' else 'completed' end, amount_sat, lock_time, block_time, txid from swap_events
-                   where coin in ('BTC','LTC') and block_time >= ? and amount_sat is not null and lock_time is not null
+                   where coin in ('BTC','LTC','PART') and block_time >= ? and amount_sat is not null and lock_time is not null
                    and ((kind='adaptor_refund_tx' and confidence='certain') or (kind='adaptor_lock_spend' and confidence='strong'))""", (T0,)).fetchall()
 db.close()
 c.execute("create temp table ev(coin varchar, outcome varchar, lock_sat bigint, lock_time bigint, spend_time bigint, txid varchar)")
@@ -34,11 +34,16 @@ c.execute(f"""create temp table offers as select msg_id, min(epoch(snapshot_utc)
   any_value(amount_from_str) amt_from, any_value(amount_to_str) amt_to, any_value(rate) rate, any_value(time_valid) ttl, any_value(lock_type) lock_type, any_value(lock_value) lock_value,
   any_value(auto_accept_type) aa, any_value(protocol_version) pv, any_value(min_bid_amount_str) mn, any_value(fee_rate_from) frf, any_value(fee_rate_to) frt, any_value(addr_from) addr
   from {S} group by msg_id""")
-c.execute(f"""create temp table px as select ts, case pair when 'XBTUSD' then 'BTC' when 'XMRUSD' then 'XMR' when 'LTCUSD' then 'LTC' when 'BCHUSD' then 'BCH' end coin, (bid+ask)/2 mid
-  from {T} where pair in ('XBTUSD','XMRUSD','LTCUSD','BCHUSD')""")
-c.execute("create temp table m as select e.*, o.*, case when o.ct=e.coin and abs(o.a_to-e.lock_sat)<=2 then 'reverse' else 'normal' end direction "
-          "from ev e join offers o on ((o.ct=e.coin and abs(o.a_to-e.lock_sat)<=2) or (o.cf=e.coin and abs(o.a_from-e.lock_sat)<=2)) "
-          "and o.first_seen<=e.lock_time+600 and o.last_seen>=e.lock_time-3600")
+from offer_match_quality import PRICE_PAIRS, REVERSE_COINS, usd_value  # noqa: E402
+_case = " ".join("when '%s' then '%s'" % kv for kv in PRICE_PAIRS.items())
+c.execute(f"""create temp table px as select ts, case pair {_case} end coin, (bid+ask)/2 mid
+  from {T} where pair in ({",".join("'%s'" % p for p in PRICE_PAIRS)})""")
+# the lock side follows BasicSwap's is_reverse_ads_bid (review item 10, 2026-11-20): reverse = coin_from scriptless or without segwit, lock on coin_to
+_rev = ",".join("'%s'" % x for x in sorted(REVERSE_COINS))
+c.execute("create temp table m as select e.*, o.*, case when o.cf in (%s) then 'reverse' else 'normal' end direction "
+          "from ev e join offers o on ((o.cf in (%s) and o.ct=e.coin and o.ct not in (%s) and abs(o.a_to-e.lock_sat)<=2) "
+          "or (o.cf not in (%s) and o.cf=e.coin and abs(o.a_from-e.lock_sat)<=2)) "
+          "and o.first_seen<=e.lock_time+600 and o.last_seen>=e.lock_time-3600" % (_rev, _rev, _rev, _rev))
 
 
 import bisect
@@ -61,8 +66,7 @@ for r in rows:
         return None if not (fu and tu and r) else round(((fu / tu) / r - 1) * 100, 2)
     d["prem_create_pct"] = prem(usd(d["cf"], d["created"]), usd(d["ct"], d["created"]))
     d["prem_lock_pct"] = prem(usd(d["cf"], d["lock_time"]), usd(d["ct"], d["lock_time"]))
-    u = usd(d["ct"], d["lock_time"])
-    d["usd"] = round(d["amt_to"] * u, 2) if u else None
+    d["usd"] = usd_value(d["coin"], d["lock_sat"], lambda coin: usd(coin, d["lock_time"]), d["amt_from"], d["cf"], d["amt_to"], d["ct"])
     d["age_at_lock_h"] = round((d["lock_time"] - d["created"]) / 3600, 2) if d["created"] else None
     d["lock_to_spend_h"] = round((d["spend_time"] - d["lock_time"]) / 3600, 2) if d["spend_time"] else None
     # siblings: offers with the same maker-chosen terms (pair, validity, lock, auto-accept, protocol, fee rates) created within 24 h before this one
@@ -70,6 +74,9 @@ for r in rows:
                                     [d["cf"], d["ct"], d["ttl"], d["lock_value"], d["aa"], d["pv"], d["frf"], d["frt"], d["created"], d["created"]]).fetchone()[0]
     d["addr"] = (d["addr"] or "")[:6] + "..."      # short form only
     out.append(d)
+
+from offer_match_quality import annotate, summary as quality_summary  # noqa: E402  candidate count, round amount, match quality; deterministic order (2026-11-20)
+out = annotate(out)
 
 os.makedirs("data/analysis", exist_ok=True)
 import datetime as _dt
@@ -83,6 +90,7 @@ for name in ("trap_labels_%s.csv" % STAMP, "trap_labels_latest.csv"):   # dated 
 nev = c.execute("select outcome, count(*) from ev group by 1").fetchall()
 print("events in window (all, before matching):", nev)
 print("matched offer rows:", len(out), " (an event can match more than one offer: same round amount)")
+print("matched events by match quality:", quality_summary(out))
 uniq = {}
 for d in out:
     uniq.setdefault((d["txid"] if "txid" in d else d["lock_time"], d["lock_sat"]), []).append(d)
@@ -115,4 +123,4 @@ for lab, sel in [("failed_reverse", lambda d: d["outcome"] == "failed" and d["di
                  ("completed_normal", lambda d: d["outcome"] == "completed" and d["direction"] == "normal")]:
     S_[lab] = summ(sel)
     print(lab, S_[lab])
-json.dump({"summary": S_, "events": nev, "note": "see trap_labels_20261116.csv (read-only analysis)"}, open("data/analysis/trap_labels_%s.json" % STAMP, "w"), indent=1, default=str)
+json.dump({"summary": S_, "events": nev, "match_quality": quality_summary(out), "note": "see trap_labels_20261116.csv (read-only analysis)"}, open("data/analysis/trap_labels_%s.json" % STAMP, "w"), indent=1, default=str)

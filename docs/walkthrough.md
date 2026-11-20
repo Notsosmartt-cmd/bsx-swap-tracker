@@ -28,7 +28,7 @@ installing: the Python parts use only the standard library.
 bash ci/run_checks.sh
 ```
 
-This needs no network. It runs the binary's self-test, checks the 19 real mainnet blocks in `fixtures/` against their
+This needs no network. It runs the binary's self-test, checks the 24 real mainnet blocks in `fixtures/` against their
 checksums, parses them with both the C++ binary and the Python reference (the outputs must be identical), runs the Python
 tests and the watcher's self-test, rebuilds the demo, and checks for leaked paths and non-ASCII text. It should end with
 `== all checks passed` after a few seconds.

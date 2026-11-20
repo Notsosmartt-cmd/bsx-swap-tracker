@@ -29,6 +29,6 @@ out of the box. They need `pip install -r python/requirements-lab.txt`.
 | `python/collectors/chain/chain_lock_early_detect.py` | early-detection precision, recall and warning time | scan database, board offers (Parquet) |
 | `python/collectors/chain/chain_swap_report.py` | events per day, secret-hash swap legs, attribution, cross-checks | scan database, board offers, prices |
 | `python/collectors/offer_match_live.py`, `python/collectors/trap_labels.py` | offer match with prices, refund (trap) labels | board offers (Parquet and raw snapshots), prices |
-| `python/tools/chain_swap_export.py` | the data behind the dashboard tab | scan database |
+| `python/tools/chain_swap_export.py` | whole-table snapshots of the scan database for dashboards | scan database |
 
 `bsx-swap-tracker match` (C++) needs only the scan database and snapshot files, and covers the offer match without prices.

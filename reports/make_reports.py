@@ -449,7 +449,7 @@ def main():
     done = sum(int(r["completed"]) for r in chains)
     s_done = sum(t["outcome"] == "completed" for t in trades)
     stats = [(fmt_int(done), "completed trades reconstructed since May"),
-             (f"{100 * v['recall_completed_swaps']['BTC']['recall']:.1f}%", "of checkable Bitcoin trades found (521 of 523)"),
+             (f"{100 * v['recall_completed_swaps']['BTC']['recall']:.1f}%", f"of checkable Bitcoin trades found ({v['recall_completed_swaps']['BTC']['hits']} of {v['recall_completed_swaps']['BTC']['of']})"),
              (f"{v['early_detection_btc']['minutes_gained_lock_to_spend_p10_p50_p90'][1]} min", "median warning before a flagged trade settles"),
              (fmt_int(s_done), f"trades in the {name} sample, listed one by one")]
     stats_html = "".join(f'<div class="stat"><b>{esc(b)}</b><span>{esc(s)}</span></div>' for b, s in stats)

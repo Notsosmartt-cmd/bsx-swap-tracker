@@ -24,6 +24,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ROOT = os.path.dirname(ROOT) if os.path.basename(ROOT) == "python" else ROOT   # public layout: <repo>/python/collectors/...
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # run with python -I: the module folder is not on the path by itself
 from collector_settings import S as SETTINGS  # noqa: E402
+from offer_match_quality import PRICE_PAIRS, annotate, lock_direction, usd_value  # noqa: E402  match quality, lock side, USD (2026-11-20)
 DATA = os.path.join(ROOT, "data")
 SNAP_DIR = SETTINGS.snapshots_dir
 TICK_DIR = os.path.join(DATA, "kraken", "ticker")
@@ -38,7 +39,7 @@ MARGIN_S = 3600                 # live rows start one hour before the nightly co
 CTX_DAYS = 4                    # closed days of Parquet offers and prices read for context (older locks, terms counted 24 h back, price at creation)
 MAX_LIVE_DAYS = 7               # refuse to rebuild more raw days than this (nightly job broken for a week: fix that first)
 READY_S = 15                    # a snapshot file younger than this may still be being written: leave it for the next run
-PAIRS = {"XBTUSD": "BTC", "XMRUSD": "XMR", "LTCUSD": "LTC", "BCHUSD": "BCH"}
+PAIRS = PRICE_PAIRS                               # offer_match_quality.py (DOGE and DASH added 2026-11-20)
 INT = {"timestamp", "amount_from", "amount_to", "lock_type", "lock_value", "time_valid", "auto_accept_type", "protocol_version", "fee_rate_from", "fee_rate_to"}
 FLOAT = {"amount_from_str", "amount_to_str", "min_bid_amount_str", "rate"}
 # offer record: raw field -> column name used by trap_labels.py
@@ -47,7 +48,7 @@ OFFER_COLS = (("timestamp", "created"), ("coin_from", "cf"), ("coin_to", "ct"), 
               ("auto_accept_type", "aa"), ("protocol_version", "pv"), ("min_bid_amount_str", "mn"), ("fee_rate_from", "frf"), ("fee_rate_to", "frt"), ("addr_from", "addr"))
 FIELDS = ["outcome", "direction", "coin", "lock_sat", "lock_time", "spend_time", "txid", "msg_id", "cf", "ct", "amt_from", "amt_to", "rate", "ttl", "lock_type",
           "lock_value", "aa", "pv", "created", "first_seen", "last_seen", "addr", "mn", "frf", "frt", "prem_create_pct", "prem_lock_pct", "usd", "age_at_lock_h",
-          "lock_to_spend_h", "same_terms_24h"]
+          "lock_to_spend_h", "same_terms_24h", "n_candidates", "round_amount", "match_quality"]   # last three: offer_match_quality.py (2026-11-20)
 TERMS = ("cf", "ct", "ttl", "lock_value", "aa", "pv", "frf", "frt")
 
 
@@ -79,7 +80,7 @@ def days_between(a, b):
 
 
 def cv(k, v):
-    """the Parquet conversion of tools/parquet_nightly.py, for the fields used here"""
+    """the same field conversion as the board's Parquet files, for the fields used here"""
     if v is None:
         return None
     try:
@@ -230,8 +231,9 @@ def match(events, idx, px):
             while i < len(arr) and arr[i][0] <= lock_sat + TOL_SAT:
                 mid = arr[i][1]; o = idx[mid]
                 if o["first_seen"] <= lock_time + BEFORE_S and o["last_seen"] >= lock_time - AFTER_S:
-                    if side == "to" or mid not in hits:
-                        hits[mid] = "reverse" if side == "to" else "normal"
+                    direction = lock_direction(coin, o["cf"], o["ct"])    # only the side that can hold the lock (is_reverse_ads_bid)
+                    if direction == ("reverse" if side == "to" else "normal"):
+                        hits[mid] = direction
                 i += 1
         for mid, direction in hits.items():
             o = idx[mid]
@@ -245,8 +247,7 @@ def match(events, idx, px):
                 return None if not (fu and tu and r) else round(((fu / tu) / r - 1) * 100, 2)
             d["prem_create_pct"] = prem(usd(px, d["cf"], d["created"]), usd(px, d["ct"], d["created"]))
             d["prem_lock_pct"] = prem(usd(px, d["cf"], lock_time), usd(px, d["ct"], lock_time))
-            u = usd(px, d["ct"], lock_time)
-            d["usd"] = round(d["amt_to"] * u, 2) if u else None
+            d["usd"] = usd_value(coin, lock_sat, lambda c: usd(px, c, lock_time), d["amt_from"], d["cf"], d["amt_to"], d["ct"])
             d["age_at_lock_h"] = round((lock_time - d["created"]) / 3600, 2) if d["created"] else None
             d["lock_to_spend_h"] = round((spend_time - lock_time) / 3600, 2) if spend_time else None
             if all(o[k] is not None for k in TERMS) and o["created"] is not None:
@@ -256,8 +257,7 @@ def match(events, idx, px):
                 d["same_terms_24h"] = 0
             d["addr"] = (d["addr"] or "")[:6] + "..."
             out.append(d)
-    out.sort(key=lambda d: d["lock_time"])
-    return out
+    return annotate(out)
 
 
 def load_events(since):
@@ -282,7 +282,7 @@ def load_early(path, since):
     try:
         with open(path, newline="") as fh:
             for r in csv.DictReader(fh):
-                if r.get("flag") != "1" or r.get("coin") not in ("BTC", "LTC"):
+                if r.get("flag") != "1" or r.get("coin") not in ("BTC", "LTC", "PART"):   # PART as in the C++ matcher (2026-11-20)
                     continue
                 try:
                     t = int(dt.datetime.fromisoformat(r["seen_utc"]).timestamp())
@@ -456,7 +456,7 @@ def main():
             header = rd.fieldnames or []
             old = [r for r in rd if r.get("spend_time") and int(float(r["spend_time"])) < live_start]
         if sorted(header) == sorted(FIELDS):
-            merged = sorted(old + rows, key=lambda r: int(float(r["lock_time"])))
+            merged = annotate(old + rows)                     # candidate counts across the nightly and live rows together
             latest = os.path.join(out_dir, "trap_labels_latest.csv")
             atomic_write(latest, lambda fh: write_rows(fh, header, merged), mode_from=latest if os.path.exists(latest) else None)
         else:

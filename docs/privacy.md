@@ -22,7 +22,7 @@ would close it.
 Measured on mainnet by this tracker:
 
 - completed swaps on BTC: 99.6 % found;
-- matched to the offer and maker: 73 % of completed BTC trades since 10 October;
+- matched to the offer and maker: 63 % of completed BTC trades since 10 October (exactly one quote, non-round amount);
 - early detection while a swap is in progress: 96.9 % precision.
 
 ## What would make swaps harder to spot

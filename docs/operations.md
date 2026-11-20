@@ -21,8 +21,8 @@ bin/bsx-swap-tracker scan --coins BTC,LTC --verify 5    # fetch and fully verify
 bin/bsx-swap-tracker scan --coins BTC --backfill-days 1 # first real scan
 ```
 
-With no Electrum header files, the first BTC/LTC run syncs headers from the built-in checkpoint (2026-05). That takes about 40 s
-and 30 MB of memory, then is incremental.
+With no Electrum header files, the first BTC/LTC run syncs headers from the built-in checkpoint (2026-05). That takes about 40 s for Bitcoin and 1 to 2 minutes for
+Litecoin, and 30 MB of memory, then is incremental.
 
 ## Running continuously
 

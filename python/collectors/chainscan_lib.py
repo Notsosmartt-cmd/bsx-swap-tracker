@@ -434,6 +434,19 @@ def swap_tx_version(family):
     return 0xA0 if family == "part" else 2
 
 
+def blind_outputs(tx, family):
+    """Particl BLIND (CT) swap transaction shape (part.py PARTInterfaceBlind createSCLockSpendTx / createSCLockRefundTx, 2026-11-20): the daemon
+    writes one data output (the fee) and one or two blinded outputs (the destination and a zero-value change to a junk key), values hidden.
+    Returns the script types of the blinded outputs, or None when the transaction does not have that shape."""
+    if family != "part":
+        return None
+    data = sum(1 for o in tx["vout"] if o.get("ptype") == PART_OUT_DATA)
+    ct = [o for o in tx["vout"] if o.get("ptype") == PART_OUT_CT]
+    if data != 1 or not (1 <= len(ct) <= 2) or data + len(ct) != len(tx["vout"]):
+        return None
+    return [out_type(o["script"])[0] for o in ct]
+
+
 def scan_block(coin, family, height, block_hash, header, txs, lookup_output, wide=True, wide_max_hex=300, index_only=False):
     """Recognise swap spends in one block.
     lookup_output(prev_txid, prev_vout) -> dict(value, otype, program, height, time, info) or None  (the rolling script-hash output index; the
@@ -492,14 +505,22 @@ def scan_block(coin, family, height, block_hash, header, txs, lookup_output, wid
                     if k:
                         outs = [out_type(o["script"])[0] for o in tx["vout"]]
                         csv_seq = (v["sequence"] & 0x80000000) == 0 and v["sequence"] != 0
-                        if nin == 1 and nout == 1 and outs[0] in ("p2wsh", "p2sh") and csv_seq:
+                        blind = blind_outputs(tx, family)                  # Particl blind swap (2026-11-20): data + blinded outputs, values hidden
+                        blind_refund = (blind is not None and nin == 1 and csv_seq and sum(t in ("p2wsh", "p2sh") for t in blind) == 1
+                                        and all(t in ("p2wsh", "p2sh", "p2pkh", "p2wpkh") for t in blind))
+                        if (nin == 1 and nout == 1 and outs[0] in ("p2wsh", "p2sh") and csv_seq) or blind_refund:
                             ev = dict(kind="adaptor_refund_tx", protocol="xmr_adaptor", confidence="likely", lock_val=v["sequence"] & 0xFFFF,
                                       extra={"pk1": k[0].hex(), "pk2": k[1].hex()})
+                            if blind_refund:
+                                ev["extra"]["blind"] = True
                         else:
                             lock_lt = None
                             if prev and prev.get("info"):
                                 lock_lt = prev["info"].get("lt")
                             plain = nin == 1 and nout == 1 and outs[0] in ("p2pkh", "p2wpkh") and tx["version"] == swap_tx_version(family)
+                            blind_plain = (blind is not None and nin == 1 and all(t in ("p2pkh", "p2wpkh") for t in blind)
+                                           and tx["version"] == swap_tx_version(family))
+                            plain = plain or blind_plain
                             seq0 = v["sequence"] == 0                      # calibrated on our own swap (2026-07-06): BasicSwap leaves nSequence at 0 on the lock spend; ordinary wallets and Lightning use 0xffffffff
                             # strong = every calibrated feature of the real swap present; likely = plain spend with an nLockTime-0 lock; candidate = bare 2-of-2 spend
                             # strong needs lock nLockTime 0. Tested 2026-11-20 and NOT adopted: also accepting a lock nLockTime 0-100 blocks below the
@@ -509,6 +530,8 @@ def scan_block(coin, family, height, block_hash, header, txs, lookup_output, wid
                             ev = dict(kind="adaptor_lock_spend", protocol="xmr_adaptor", confidence=conf,
                                       extra={"pk1": k[0].hex(), "pk2": k[1].hex(), "plain_spend": plain, "seq0": seq0, "lock_nlocktime": lock_lt,
                                              "lock_age_blocks": (height - prev["height"]) if prev else None})
+                            if blind_plain:
+                                ev["extra"]["blind"] = True
                     elif family == "bch":
                         c = parse_bch_covenant(script)
                         if c:

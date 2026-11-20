@@ -43,7 +43,7 @@ for r in tr:
 for t in titles("settle"):
     ch,b,_,v=re.match(r"(\w+) (\d+)-(\d+) min: (\d+)",t).groups(); check("settle", hist.get((ch,int(b)//5),0)==int(v), t)
 v=json.load(open("datasets/validation.json"))
-for s in ("521 of 523","11 of 11","219 of 226",f"{round(100*v['early_detection_btc']['recall_at_lock_time'])}%, a median {v['early_detection_btc']['minutes_gained_lock_to_spend_p10_p50_p90'][1]} min ahead"):
+for s in (f"{v['recall_completed_swaps']['BTC']['hits']} of {v['recall_completed_swaps']['BTC']['of']}","11 of 11","219 of 226",f"{round(100*v['early_detection_btc']['recall_at_lock_time'])}%, a median {v['early_detection_btc']['minutes_gained_lock_to_spend_p10_p50_p90'][1]} min ahead"):
     check("validation", s in figs["validation"], s)
 chains=rd("datasets/chains.csv"); tot=sum(int(r["completed"]) for r in chains)
 check("stats", f"{tot:,}" in page, tot)

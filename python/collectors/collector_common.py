@@ -1,6 +1,6 @@
-"""Shared helpers of the swap tracker (2026-11-20): the parts of the research project's python/collectors/common.py that the collector needs,
-with the log and lock folders taken from the settings file (collector_settings.py). Linux only.
-  ROOT, DATA         repository root (works in the private layout and in the public python/collectors layout) and <root>/data
+"""Shared helpers of the swap tracker's Python tools (2026-11-20), with the log and lock folders taken from the settings file
+(collector_settings.py). Linux only.
+  ROOT, DATA         repository root (python/collectors/ or python/collectors/ under it) and <root>/data
   setup_logging(n)   rotating file log <logs_dir>/<n>.log (5 MB x 5), console too when attached
   single_instance(n) heartbeat lock <locks_dir>/<n>.json shared with the C++ runtime (host, pid, updated); exits quietly if another live
                      instance holds it; SIGTERM becomes a normal exit so the lock is released"""
@@ -37,9 +37,9 @@ def _lock_owner():
 def single_instance(name):
     """Exit quietly if another copy of this process is already running ANYWHERE that writes this data folder
     (prevents duplicate collectors doubling request rates and interleaving file writes).
-      * Windows: a named mutex (same login session), as before.
-      * Everywhere: a heartbeat file data/locks/<name>.json refreshed every 20 s. It is shared by the Windows and the Docker
-        copies through the bind mount, so a Docker collector and a leftover Windows collector can never both run.
+      * Windows: a named mutex (same login session).
+      * Everywhere: a heartbeat file data/locks/<name>.json refreshed every 20 s, so two copies that share the data folder (for
+        example one in a container and one outside it) can never both run.
         A heartbeat older than 75 s is stale (crash); on Linux a heartbeat from this same host whose pid is gone is stale at once
         (a restarted container), and the file is removed on a clean exit."""
     os.makedirs(LOCK_DIR, exist_ok=True)

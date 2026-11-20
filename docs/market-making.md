@@ -29,10 +29,12 @@ offers, swaps, early flags) and is a safe test input for such tools.
 ## Measured so far
 
 Figures from quote-matched trades since 10 October 2026 (when order-book recording began), priced against Kraken. They cover only
-matched trades, 73% of completed Bitcoin trades since 10 October, on one deployment.
+matched trades: those that fit exactly one quote with a non-round amount (63% of completed Bitcoin trades since 10 October), on one
+deployment.
 
-Pricing. Takers buying XMR paid a median 3.0% over Kraken, on quotes that had been up a median 21 minutes; takers selling XMR
-received 0.76% more than Kraken would have paid. Monero is rich on this venue in both directions, and that gap is the spread makers
+Pricing (uniquely matched swaps only). Takers buying XMR paid a median 3.1% over Kraken (484 swaps), on quotes that had been up a
+median 20 minutes; takers selling XMR received 1.1% more than Kraken would have paid (42 swaps). These counts are the Python matcher's priced
+swaps; `pairs.csv`, built by the C++ report under the public rules, counts 478 and 41. Monero is rich on this venue in both directions, and that gap is the spread makers
 compete for. Fill probability against premium, size and quote age is the input an Avellaneda-Stoikov style quoting model needs:
 matched fills give the numerator and the quotes that expired untouched (in the snapshots) give the denominator.
 
@@ -43,7 +45,8 @@ after each fill, which the matched trades allow but which is not computed here. 
 swap. That option is worth about 9-19 bp of notional (an at-the-money option is worth about 0.4 standard deviations of
 the price move over its life, and XMR/LTC moves 0.23-0.48% in the 14.5 minutes between a bid and the second lock), although stock BasicSwap software never exercises it. Since May 6.0% of
 Bitcoin trades (97 of 1,612) and 7.2% of Litecoin trades (61 of 846) ended in a refund. On Bitcoin the rate fell from 13% in May to
-August to 3% since September, which is when BasicSwap 0.18 changed the refund path (its release notes, 24 August 2026).
+August to 3% since September, which coincides with BasicSwap 0.18 changing the refund path (its release notes, 24 August 2026); the data cannot say whether
+the release caused the drop.
 
 Hedging. For quote-matched trades, funds stay committed a median 18 minutes from lock to settlement (45 at the 90th percentile;
 19 and 57 for all Bitcoin trades in `chains.csv`). Hedging USD 1k of XMR/USD on Kraken costs about 5-6 bp, measured by sweeping

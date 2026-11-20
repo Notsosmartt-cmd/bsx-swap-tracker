@@ -9,6 +9,21 @@ static constexpr uint8_t OP_IF = 0x63, OP_ELSE = 0x67, OP_ENDIF = 0x68, OP_DROP 
 
 int64_t swap_tx_version(Family f) { return f == Family::part ? 0xA0 : 2; }
 
+// Particl BLIND (CT) swap transaction shape (part.py PARTInterfaceBlind createSCLockSpendTx / createSCLockRefundTx, 2026-11-20; same rule as
+// chainscan_lib.blind_outputs): one data output (the fee) and one or two blinded outputs, values hidden.  Fills the blinded outputs' script
+// types and returns true when the transaction has that shape.
+static bool blind_outputs(const Tx& tx, Family f, std::vector<std::string>& types) {
+    types.clear();
+    if (f != Family::part) return false;
+    int data = 0, ct = 0;
+    for (auto& o : tx.vout) {
+        if (o.ptype == 4) data++;
+        else if (o.ptype == 2) { ct++; types.emplace_back(out_type(o.script).type); }
+        else return false;
+    }
+    return data == 1 && ct >= 1 && ct <= 2;
+}
+
 std::optional<std::vector<Bytes>> parse_pushes(View s) {
     std::vector<Bytes> out;
     size_t i = 0, n = s.size();
@@ -234,21 +249,33 @@ ScanResult scan_block(Family f, int64_t height, int64_t t_block, const std::vect
                     std::vector<std::string> outs;
                     for (auto& o : tx.vout) outs.emplace_back(out_type(o.script).type);
                     bool csv_seq = (v.sequence & 0x80000000u) == 0 && v.sequence != 0;
+                    std::vector<std::string> btypes;
+                    bool blind = blind_outputs(tx, f, btypes);         // Particl blind swap (2026-11-20)
+                    auto is_sh = [](const std::string& t) { return t == "p2wsh" || t == "p2sh"; };
+                    auto is_pkh = [](const std::string& t) { return t == "p2pkh" || t == "p2wpkh"; };
+                    bool blind_refund = false, blind_plain = false;
+                    if (blind && nin == 1) {
+                        int sh = 0; bool ok = true, all_pkh = true;
+                        for (auto& t : btypes) { if (is_sh(t)) sh++; else if (!is_pkh(t)) ok = false; if (!is_pkh(t)) all_pkh = false; }
+                        blind_refund = csv_seq && ok && sh == 1;
+                        blind_plain = all_pkh && tx.version == swap_tx_version(f);
+                    }
                     Event e;
                     e.protocol = "xmr_adaptor";
                     e.extra = Json::object();
-                    if (nin == 1 && nout == 1 && (outs[0] == "p2wsh" || outs[0] == "p2sh") && csv_seq) {
+                    if ((nin == 1 && nout == 1 && (outs[0] == "p2wsh" || outs[0] == "p2sh") && csv_seq) || blind_refund) {
                         e.kind = "adaptor_refund_tx";
                         e.confidence = "likely";
                         e.lock_val = v.sequence & 0xFFFF;
                         e.extra.set("pk1", Json::str(hex(pk1)));
                         e.extra.set("pk2", Json::str(hex(pk2)));
+                        if (blind_refund) e.extra.set("blind", Json::boolean(true));
                     } else {
                         Json lock_lt;                                   // null = unknown
                         if (prev && prev->info.t == Json::T::Obj) { if (const Json* lt = prev->info.get("lt")) lock_lt = *lt; }
                         bool lt_ok = lock_lt.is_null() || (lock_lt.t == Json::T::Int && lock_lt.i == 0);
                         // strong needs lock nLockTime 0; a height-based lock time was tested 2026-11-20 and not adopted (see chainscan_lib.py)
-                        bool plain = nin == 1 && nout == 1 && (outs[0] == "p2pkh" || outs[0] == "p2wpkh") && tx.version == swap_tx_version(f);
+                        bool plain = (nin == 1 && nout == 1 && (outs[0] == "p2pkh" || outs[0] == "p2wpkh") && tx.version == swap_tx_version(f)) || blind_plain;
                         bool seq0 = v.sequence == 0;
                         e.kind = "adaptor_lock_spend";
                         e.confidence = (plain && seq0 && lt_ok) ? "strong" : ((plain && lt_ok) ? "likely" : "candidate");
@@ -258,6 +285,7 @@ ScanResult scan_block(Family f, int64_t height, int64_t t_block, const std::vect
                         e.extra.set("seq0", Json::boolean(seq0));
                         e.extra.set("lock_nlocktime", lock_lt);
                         e.extra.set("lock_age_blocks", prev ? Json::integer(height - prev->height) : Json::null());
+                        if (blind_plain) e.extra.set("blind", Json::boolean(true));
                     }
                     ev = std::move(e);
                 } else if (f == Family::bch && parse_bch_covenant(script)) {

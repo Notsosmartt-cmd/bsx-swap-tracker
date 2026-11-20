@@ -103,7 +103,7 @@ if (!OWN) (function kpis() {
     [fmt(r.BTC.recall * 100, 1) + " %", "BTC recall of completed swaps (" + r.BTC.hits + "/" + r.BTC.of + ", CI " + fmt(r.BTC.ci95[0] * 100, 1) + "-" + fmt(r.BTC.ci95[1] * 100, 1) + ")"],
     [fmt(e.precision * 100, 1) + " %", "early-detection precision at lock time (" + e.hits + "/" + e.of + ")"],
     [fmt(e.minutes_gained_lock_to_spend_p10_p50_p90[1], 1) + " min", "median warning before completion (p10 " + e.minutes_gained_lock_to_spend_p10_p50_p90[0] + ", p90 " + e.minutes_gained_lock_to_spend_p10_p50_p90[2] + ")"],
-    [c.corpus_parse_and_events.identical + "/" + c.corpus_parse_and_events.blocks, "test blocks where C++ equals the Python reference (19 of them ship in fixtures/)"],
+    [c.corpus_parse_and_events.identical + "/" + c.corpus_parse_and_events.blocks, "test blocks where C++ equals the Python reference (24 of them ship in fixtures/)"],
     [fmt(c.shadow_runs.rows_compared) , "rows compared in shadow runs, " + c.shadow_runs.different + " different"],
   ];
   const k = document.getElementById("kpis");

@@ -22,7 +22,7 @@ try:
     from basicswap.protocols import atomic_swap_1  # noqa: E402
     from basicswap.interface.btc.btc import BTCInterface  # noqa: E402
     REAL = True
-except Exception:       # missing pycryptodome etc. in this venv
+except Exception:       # BasicSwap or pycryptodome not installed: use the hand-built scripts below
     pass
 
 KAL, KAF, KAS = b"\x02" + b"\x11" * 32, b"\x03" + b"\x22" * 32, b"\x02" + b"\x33" * 32
@@ -210,6 +210,15 @@ class Recognition(unittest.TestCase):
         S.insert_block(db, "T", 101, "i" * 64, hdr, [], [], [], ev4)
         row = db.execute("SELECT kind, confidence FROM swap_events WHERE txid=?", (ref_id,)).fetchone()
         self.assertEqual(row, ("adaptor_refund_tx", "certain"))
+        # spend stored first (an older range scanned after the tip), refund tx later: certain at insert (2026-11-20); a rewind of the block
+        # holding the spend turns it back to likely
+        db2 = sqlite3.connect(":memory:")
+        db2.executescript(S.SCHEMA)
+        S.insert_block(db2, "T", 101, "i" * 64, hdr, [], [], [], [dict(e, height=101) for e in ev4])
+        S.insert_block(db2, "T", 100, "h" * 64, hdr, [], p2, sp, e3)
+        self.assertEqual(db2.execute("SELECT confidence FROM swap_events WHERE txid=? AND kind='adaptor_refund_tx'", (ref_id,)).fetchone(), ("certain",))
+        S.rewind(db2, "T", 101)
+        self.assertEqual(db2.execute("SELECT confidence FROM swap_events WHERE txid=? AND kind='adaptor_refund_tx'", (ref_id,)).fetchone(), ("likely",))
         # refund scripts from before BasicSwap 0.18 have no "1 CSV DROP" in the IF branch (missed until 2026-11-20); same path, tagged
         old_sc = ref_sc[:1] + ref_sc[4:]
         self.assertEqual(len(old_sc), len(ref_sc) - 3)
@@ -226,6 +235,32 @@ class Recognition(unittest.TestCase):
         S.insert_block(db, "T", 102, "j" * 64, hdr, [], p3, sp3, e9)
         S.insert_block(db, "T", 103, "k" * 64, hdr, [], [], [], ev8)
         self.assertEqual(db.execute("SELECT kind, confidence FROM swap_events WHERE txid=?", (old_id,)).fetchone(), ("adaptor_refund_tx", "certain"))
+
+    def test_part_blind_paths(self):
+        """Particl blind swaps (2026-11-20): the daemon writes [data, blinded dest, blinded change], values hidden (part.py PARTInterfaceBlind)"""
+        lock_sc, ref_sc = adaptor_lock_script(), adaptor_refund_script(10)
+        wit = [b"", b"\x30" + b"a" * 70, b"\x30" + b"b" * 70, lock_sc]
+        def tx(seq, outs, version=0xA0):
+            return {"txid": "ab" * 32, "version": version, "locktime": 0, "coinbase": False,
+                    "vin": [{"txid": "cc" * 32, "vout": 0, "script_sig": b"", "sequence": seq, "witness": wit, "prevout": None, "coinbase": False}],
+                    "vout": [{"value": v, "script": sc, "ptype": pt} for pt, v, sc in outs]}
+        data = (L.PART_OUT_DATA, None, b"")
+        ct = lambda sc: (L.PART_OUT_CT, None, sc)
+        p2pkh = b"\x76\xa9\x14" + PKH1 + b"\x88\xac"
+        lock_info = {"value": None, "otype": "p2wsh", "program": "", "height": 95, "time": 1, "info": {"lt": 0}}
+        def run(t):
+            return L.scan_block("PART", "part", 100, "h" * 64, {"time": 1}, [t], lambda a, b: lock_info, wide=False)[2]
+        ev = run(tx(0, [data, ct(p2pkh), ct(p2pkh)]))
+        self.assertEqual([(e["kind"], e["confidence"], e["extra"].get("blind")) for e in ev], [("adaptor_lock_spend", "strong", True)])
+        ev = run(tx(10, [data, ct(p2wsh(ref_sc)), ct(p2pkh)]))                                   # blind refund tx: CSV sequence, one blinded output to the refund script
+        self.assertEqual([(e["kind"], e["confidence"], e["extra"].get("blind")) for e in ev], [("adaptor_refund_tx", "likely", True)])
+        # near misses stay candidate: a standard (visible) output next to the blinded ones, two data outputs, the wrong tx version, a non-zero sequence
+        self.assertEqual(run(tx(0, [data, ct(p2pkh), (L.PART_OUT_STANDARD, 5, p2pkh)]))[0]["confidence"], "candidate")
+        self.assertEqual(run(tx(0, [data, data, ct(p2pkh)]))[0]["confidence"], "candidate")
+        self.assertEqual(run(tx(0, [data, ct(p2pkh), ct(p2pkh)], version=2))[0]["confidence"], "candidate")
+        self.assertEqual(run(tx(0xFFFFFFFF, [data, ct(p2pkh), ct(p2pkh)]))[0]["confidence"], "likely")
+        # the same shape on another family is not blind
+        self.assertIsNone(L.blind_outputs(tx(0, [data, ct(p2pkh)]), "btc"))
 
     def test_ordinary_traffic_is_ignored(self):
         multi3 = b"\x52\x21" + KAL + b"\x21" + KAF + b"\x21" + KAS + b"\x53\xae"              # 2-of-3: not a swap script

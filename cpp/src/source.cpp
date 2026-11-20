@@ -387,7 +387,8 @@ private:
         }
     }
     // A peer whose chain ends below ours (stalled, or on a shorter branch) must not cut our chain back: keep the longer one.
-    // Headers carry proof of work and similar difficulty near the tip, so the longer valid chain is the one with more work.
+    // Every header passed its own proof of work and the difficulty floor; near the tip difficulty barely changes, so the longer chain
+    // stands in for the one with more work (not a full chainwork comparison).
     bool keep_longer() {
         if (backup_.empty()) return false;
         bool restored = false;

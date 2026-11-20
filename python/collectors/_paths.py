@@ -8,8 +8,8 @@ import os
 import sys
 
 COLLECTORS = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.dirname(COLLECTORS)
-SUBDIRS = ("studies", "economics", "offers", "chain", "fresh_maker", "synthetic", "utils", "tests", "futures")
+SUBDIRS = tuple(sorted(d for d in os.listdir(COLLECTORS)                 # every themed sub-folder that exists here
+                       if os.path.isdir(os.path.join(COLLECTORS, d)) and not d.startswith(("_", "."))))
 for _d in [COLLECTORS] + [os.path.join(COLLECTORS, _s) for _s in SUBDIRS]:
     if _d not in sys.path:
         sys.path.insert(1, _d)          # after the folder of the script that is running
