@@ -58,6 +58,7 @@ bands and maker shares. `--public` adds the rounding and minimum-count rules use
 * `fixtures/` and `ci/`: real mainnet blocks and the checks CI runs on them
 * `deploy/systemd/`: units for running it continuously
 * `docs/`: detection method, validation, configuration, operations and privacy
+* `CHANGELOG.md`: what changed in each release
 
 Per-chain summary from `datasets/chains.csv`:
 

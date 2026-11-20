@@ -6,6 +6,16 @@ or a coin added by a fork) is not linked to it on chain. The
 tracker therefore watches the scripted chain. It reads every block, finds spends that reveal a script, and compares the script
 with exact templates.
 
+Terms used here and in the datasets:
+
+| Term | Meaning |
+|---|---|
+| scripted coin | a coin with scripts (BTC, LTC, BCH, PART): the leg the tracker can see |
+| lock, lock spend | the 2-of-2 output that holds the scripted coin during a swap, and the transaction that spends it |
+| tier | how sure a recognition is: `certain` (the script proves it), `strong` (a completed BasicSwap trade, counted), `likely` and `candidate` (same script shape, not counted) |
+| normal, reverse | normal: the maker's offered coin is the scripted one and the maker locks first; reverse: the maker offers a scriptless coin (XMR, WOW, ...) and the taker locks first |
+| unique, ambiguous, round | quality of a match to a public quote: one quote with a non-round amount, several quotes, or one quote with a round amount (section 4) |
+
 ## 1. What is read
 
 Each non-coinbase input that spends a script-hash output (P2SH or P2WSH), and whose revealed script is 34 to 1000 bytes long, is
@@ -29,7 +39,7 @@ spend decides the tier. Let:
 
 - `plain` mean 1 input, 1 output, an output of type P2PKH or P2WPKH, and transaction version 2 (0xA0 on Particl); on Particl a
   blind (confidential) swap also counts as `plain`: 1 input, version 0xA0, exactly one data output (the fee) and one or two blinded
-  outputs to P2PKH or P2WPKH, values hidden (BasicSwap `PARTInterfaceBlind`; recognised since 2026-11-20, amount unknown);
+  outputs to P2PKH or P2WPKH, values hidden (BasicSwap `PARTInterfaceBlind`; the amount is unknown);
 - `seq0` mean the input's nSequence is 0;
 - `lock_lt` mean the nLockTime of the transaction that created the 2-of-2 output, when that transaction is in the index.
 
@@ -47,7 +57,7 @@ output is spent through template 2.
 only BasicSwap locks, the first key is the greater in about half the cases; in a tier that holds Lightning, almost never. The
 strong tier passes this test.
 
-**Tested and not adopted (2026-11-20).** Some 2-of-2 spends have every strong feature except a lock nLockTime 0 to 100 blocks
+**Tested and not adopted.** Some 2-of-2 spends have every strong feature except a lock nLockTime 0 to 100 blocks
 below the lock's own height, the shape of a client that sets the lock time to the chain height. Accepting them would add 46
 spends. Of the 35 since board data begins, none matched a public offer; at the strong tier's matching rate about 3.3 should have
 (chance of none: 1.6 %). They stay `candidate`. A unit test pins this decision.
@@ -77,7 +87,7 @@ Each match row records `n_candidates` (how many offers the lock matched), `round
 units) and `match_quality`: `unique` (one candidate, non-round), `ambiguous` (more than one candidate: which offer was filled is
 unknown) or `round` (one candidate, round amount: mostly chance; on Litecoin 82 of 91 such matches were). Only `unique` matches
 count towards pairs, makers and USD; `daily_swaps.csv` counts the other two in `offer_matched_ambiguous` and
-`offer_matched_round_amount`. Until 2026-11-20 the first matching row was used, in an order that could change between runs.
+`offer_matched_round_amount`.
 
 The offer gives the maker address, the direction, the rate and the terms. `same_terms_24h` counts offers with identical terms
 created in the 24 h before the matched one, a measure of how often a maker reposts. Offers come from board snapshots: either the
@@ -97,12 +107,12 @@ probable swap lock when all of these hold:
 The swap is then still in progress. The flag arrives a median 18.8 minutes before the spend that completes it. The watcher also
 starts a scan 45 s and 180 s after each block, so completed swaps reach the database within minutes.
 
-## 5b. Counting rules (2026-11-20)
+## 6. Counting rules
 
 - **Lock side.** BasicSwap puts the script lock on coin_from unless coin_from is scriptless or has no segwit (`is_reverse_ads_bid`:
   XMR, WOW, PART_ANON, FIRO, DOGE, DASH, PIVX), in which case the lock is on coin_to and the taker locks first (`reverse`). A lock
   on coin X is matched to an offer's amount_from only for a normal offer with coin_from = X, and to its amount_to only for a reverse
-  offer with coin_to = X. (Before, both sides were tried; on scripted-coin pairs such as BTC/LTC an LTC lock could match the wrong side.)
+  offer with coin_to = X.
 - **USD.** The locked leg at the Kraken mid of its own coin at the lock time; if that coin has no Kraken price (PART), the offer's
   other leg. `offer_matched_unpriced` counts uniquely matched completed swaps with no price.
 - **Refund tier.** A refund transaction is `certain` while a spend of its output through the refund script is stored: it is upgraded
@@ -119,7 +129,7 @@ starts a scan 45 s and 180 s after each block, so completed swaps reach the data
   LTC, PART; BCH has no adaptor locks) the two agree. The C++ `match` command looks back 2 days by default (`--days`) and leaves USD
   empty; the published datasets use the Python matcher's file, which has USD.
 
-## 6. Limits
+## 7. Limits
 
 - The Monero leg is invisible, so direction, the other coin and the counter-amount come from the matched offer, or are unknown.
   Swaps whose other leg is not Monero (BasicSwap scripted-coin pairs, forks) are counted the same way.
