@@ -1,0 +1,14 @@
+[Unit]
+Description=bsx-swap-tracker live watcher (mempool and blocks, early lock flags, scan triggers)
+After=network-online.target
+
+[Service]
+WorkingDirectory=@ROOT@
+ExecStart=@ROOT@/bin/bsx-swap-tracker watch --coins BTC,LTC
+Restart=on-failure
+RestartSec=30s
+Nice=10
+MemoryMax=300M
+
+[Install]
+WantedBy=default.target

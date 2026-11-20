@@ -1,0 +1,25 @@
+# bsx-swap-tracker settings (copy to config/bsx-swap-tracker.toml, or pass --config FILE, or set BSX_SWAP_TRACKER_CONFIG).
+# Every key is optional; relative paths resolve against [paths] root (default: the repository root).
+[paths]
+# root = "/srv/bsx-swap-tracker"
+data_dir = "data/analysis/chainscan"               # database, status, heartbeats, early locks, PART header store
+snapshots_dir = "data/basicswap/site_snapshots"     # public board snapshots (*.json.gz) for offer matching and early detection
+logs_dir = "data/logs"
+locks_dir = "data/locks"
+basicswap_json = "coindata/basicswap.json"          # BasicSwap's config: BCH RPC credentials (chainclients.bitcoincash), optional
+electrum_headers_dir = "coindata/electrum_headers"  # BasicSwap's Electrum header files for BTC / LTC; optional (absent: built-in header sync)
+
+[safety]
+# Ports the tracker must never contact, ADDED to BasicSwap's defaults that are always protected
+# (UI 12700, WebSocket 11700, Particl RPC 19792 / ZMQ 20792, XMR wallet 29998, WOW wallet 34798, DCR wallet 9209).
+# List every other wallet RPC or UI on your machine here.
+protected_ports = []
+
+[watch]
+# systemd user units the live watcher starts 45 s and 180 s after a block (scan) and after a new early flag (match);
+# the defaults match deploy/systemd/
+# scan_unit_btc = "bsx-swap-scan@BTC.service"
+# scan_unit_ltc = "bsx-swap-scan@LTC.service"
+# scan_unit_part = "bsx-swap-scan@PART.service"
+# scan_unit_bch = "bsx-swap-scan@BCH.service"
+# match_unit = "bsx-swap-match.service"

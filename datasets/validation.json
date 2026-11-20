@@ -1,0 +1,105 @@
+{
+ "generated_utc": "2026-11-20 18:50",
+ "notes": "Measured on mainnet data by the author's deployment. CI = 95 % Wilson interval. Definitions in docs/validation.md.",
+ "recall_completed_swaps": {
+  "method": "share of offer-matched, non-round swap locks whose spend reached the top tier, minus chance matches (offers shifted by one day)",
+  "BTC": {
+   "hits": 521,
+   "of": 523,
+   "recall": 0.996,
+   "ci95": [
+    0.986,
+    0.999
+   ],
+   "since": "2026-10-10"
+  },
+  "LTC": {
+   "hits": 11,
+   "of": 11,
+   "recall": 1.0,
+   "ci95": [
+    0.741,
+    1.0
+   ],
+   "since": "2026-10-10"
+  },
+  "PART": {
+   "structural": true,
+   "hits": 223,
+   "of": 225,
+   "recall": 0.991,
+   "note": "no offer-matched swaps since 2026-10-10; structural share of BasicSwap-shaped spends that reach the top tier"
+  },
+  "BCH": {
+   "measurable": false,
+   "note": "covenant swaps are recognised by template (certain tier); no offer-matched sample"
+  }
+ },
+ "early_detection_btc": {
+  "method": "lock output (P2WSH) at mempool or block time, amount equal to exactly one live offer, tx version 2, nLockTime 0, at most 2 outputs, amount not a multiple of 1000 sat; precision = share later completed or refunded as a swap (outputs older than 6 h)",
+  "precision": 0.969,
+  "ci95": [
+   0.937,
+   0.985
+  ],
+  "hits": 219,
+  "of": 226,
+  "recall_at_lock_time": 0.72,
+  "minutes_gained_lock_to_spend_p10_p50_p90": [
+   9.9,
+   18.8,
+   50.3
+  ],
+  "window": {
+   "from_utc": "2026-11-11 18:23",
+   "to_utc": "2026-11-17 23:57",
+   "days": 6.23162037037037,
+   "blocks": 1008
+  }
+ },
+ "amount_only_matcher_btc": {
+  "note": "matching on the amount alone (no transaction-shape rules) is weak: precision 1.2 % / 25.6 % / 34.4 % at recall 91 / 82 / 82 % for three rule sets on 144 blocks"
+ },
+ "cpp_vs_python": {
+  "corpus_parse_and_events": {
+   "blocks": 30,
+   "identical": 30
+  },
+  "shadow_runs": {
+   "first_run_utc": "2026-11-19 23:14:34",
+   "last_run_utc": "2026-11-20 01:28:43",
+   "table_comparisons": 48,
+   "rows_compared": 909362,
+   "different": 0,
+   "only_in_one": 0
+  }
+ },
+ "fuzzing": {
+  "targets": [
+   "fuzz_block",
+   "fuzz_tx",
+   "fuzz_script",
+   "fuzz_json",
+   "fuzz_frame"
+  ],
+  "engine": "libFuzzer + ASan/UBSan",
+  "findings": [
+   "JSON writer escaped non-ASCII per byte instead of per code point (fixed, regression self-test)"
+  ],
+  "open_crashes": 0
+ },
+ "coverage": {
+  "chains": [
+   "BTC",
+   "LTC",
+   "PART",
+   "BCH"
+  ],
+  "days_in_daily_swaps": 207,
+  "first_day": "2026-01-20",
+  "last_day": "2026-11-19"
+ },
+ "not_adopted": {
+  "height_based_lock_nlocktime_for_top_tier": "tested 2026-11-20: 46 extra spends, 0 of 35 offer-matched where 3.3 were expected (chance 1.6 %)"
+ }
+}

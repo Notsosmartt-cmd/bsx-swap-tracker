@@ -1,0 +1,11 @@
+[Unit]
+Description=bsx-swap-tracker offer match (completed swaps, refunds and early flags against board snapshots)
+
+[Service]
+Type=oneshot
+WorkingDirectory=@ROOT@
+ExecStart=@ROOT@/bin/bsx-swap-tracker match
+ExecStartPost=@ROOT@/bin/bsx-swap-tracker report
+Nice=19
+IOSchedulingClass=idle
+MemoryMax=1G

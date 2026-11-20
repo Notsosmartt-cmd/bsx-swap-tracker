@@ -1,0 +1,9 @@
+[Unit]
+Description=bsx-swap-tracker offer match every 10 minutes
+
+[Timer]
+OnBootSec=7min
+OnUnitActiveSec=10min
+
+[Install]
+WantedBy=timers.target

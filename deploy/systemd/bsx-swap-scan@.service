@@ -1,0 +1,14 @@
+[Unit]
+Description=bsx-swap-tracker scan, %i (catch up to the tip)
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=@ROOT@
+# Without --backfill-days the first run covers the last 7 days and later runs only move forward. To build a longer history once,
+# run `bin/bsx-swap-tracker scan --coins BTC --backfill-days 30` (or max, about 180 days and several GB) by hand.
+ExecStart=@ROOT@/bin/bsx-swap-tracker scan --coins %i
+Nice=19
+IOSchedulingClass=idle
+MemoryMax=1500M
+TimeoutStartSec=2h

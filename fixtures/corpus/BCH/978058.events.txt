@@ -1,0 +1,1 @@
+ev bch_covenant_spend certain 9a20c1f23ad88d49475b5e1b75406be8c8dfa4bf008b3cb7fcce22db282e2712 0 -

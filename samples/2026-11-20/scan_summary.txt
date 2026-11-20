@@ -1,0 +1,6 @@
+2026-11-20 13:02:22,799 INFO [MainThread] BTC: scanned 145 blocks this run (start 976620, tip 976764); 286.3 blocks/min; time split: fetch 60%, parse+recognise 3%, db write 6%, commit 3%, throttle 30%
+2026-11-20 13:03:39,726 INFO [MainThread] LTC: scanned 577 blocks this run (start 3215847, tip 3216423); 571.0 blocks/min; time split: fetch 78%, parse+recognise 1%, db write 2%, commit 1%, throttle 20%
+2026-11-20 13:04:00,600 INFO [MainThread] run finished: {'BTC': 'caught_up', 'LTC': 'caught_up'}
+2026-11-20 13:16:46,712 INFO [MainThread] BTC: scanned 288 blocks this run (start 976765, tip 976766); 373.8 blocks/min; time split: fetch 48%, parse+recognise 4%, db write 9%, commit 4%, throttle 37%
+2026-11-20 13:17:51,592 INFO [MainThread] LTC: scanned 1152 blocks this run (start 3216424, tip 3216426); 2195.5 blocks/min; time split: fetch 14%, parse+recognise 2%, db write 7%, commit 4%, throttle 76%
+2026-11-20 13:17:51,732 INFO [MainThread] run finished: {'BTC': 'caught_up', 'LTC': 'caught_up'}

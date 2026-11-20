@@ -1,0 +1,14 @@
+[Unit]
+Description=bsx-swap-tracker board snapshots from your own BasicSwap node (read-only offer list, once a minute)
+
+[Service]
+WorkingDirectory=@ROOT@
+# set the URL of YOUR node's UI (loopback only); there is no default
+ExecStart=@ROOT@/bin/bsx-swap-tracker snapshot --url http://127.0.0.1:12700 --interval 60 --count 0
+Restart=on-failure
+RestartSec=60s
+Nice=10
+MemoryMax=300M
+
+[Install]
+WantedBy=default.target

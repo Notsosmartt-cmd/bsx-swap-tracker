@@ -1,0 +1,5 @@
+chain,completed,refunded,refund_pct,first_day,last_day,lock_to_spend_min_p10,lock_to_spend_min_p50,lock_to_spend_min_p90
+BTC,1515,97,6.02,2026-05-19,2026-11-19,9.8,19.4,56.6
+LTC,785,61,7.21,2026-05-24,2026-11-19,10.1,15.2,26.0
+PART,223,16,6.69,2026-05-14,2026-11-07,7.2,12.5,20.5
+BCH,0,0,,2026-01-20,2026-11-19,,,

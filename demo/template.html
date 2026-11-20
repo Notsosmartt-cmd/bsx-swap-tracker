@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Swap Tracker Demo</title>
+<style>
+:root { --bg:#f7f7f5; --card:#ffffff; --ink:#1d2125; --mute:#5f6670; --line:#e2e4e7; --accent:#2f6fde;
+  --c-BTC:#e08a1e; --c-LTC:#6b7f99; --c-PART:#3aa676; --c-BCH:#8d5fd3; --warn:#c2453d; }
+@media (prefers-color-scheme: dark) { :root { --bg:#14171a; --card:#1c2024; --ink:#e7e9ec; --mute:#9aa2ac; --line:#2c3238; --accent:#6c9cf0;
+  --c-BTC:#f0a040; --c-LTC:#93a7c2; --c-PART:#5cc996; --c-BCH:#b08cf0; --warn:#e8736b; } }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width:1080px; margin:0 auto; padding:24px 16px 48px; }
+h1 { font-size:24px; margin:0 0 4px; } h2 { font-size:18px; margin:0 0 4px; } h3 { font-size:14px; margin:0 0 8px; color:var(--mute); font-weight:600; }
+p.sub { color:var(--mute); margin:0 0 20px; }
+.tag { display:inline-block; font-size:11px; font-weight:700; letter-spacing:.04em; padding:2px 7px; border-radius:4px; margin-left:8px; vertical-align:middle; }
+.tag.real { background:#2f6fde22; color:var(--accent); } .tag.syn { background:#c2453d22; color:var(--warn); }
+section { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:18px; margin:0 0 18px; }
+.kpis { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-top:12px; }
+.kpi { border:1px solid var(--line); border-radius:8px; padding:10px 12px; } .kpi b { display:block; font-size:22px; } .kpi span { color:var(--mute); font-size:13px; }
+.controls { display:flex; flex-wrap:wrap; gap:6px; margin:10px 0; }
+button { font:inherit; font-size:13px; border:1px solid var(--line); background:transparent; color:var(--ink); padding:4px 10px; border-radius:6px; cursor:pointer; }
+button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
+.chip { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:5px; vertical-align:-1px; }
+.chart { position:relative; width:100%; } svg { display:block; width:100%; height:auto; }
+.tip { position:absolute; pointer-events:none; background:var(--card); border:1px solid var(--line); border-radius:6px; padding:6px 8px; font-size:12px; display:none; white-space:nowrap; box-shadow:0 2px 8px #0002; }
+.grid2 { display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:18px; }
+.grid2.wide { grid-template-columns:repeat(auto-fit, minmax(460px, 1fr)); }
+@media (max-width:520px) { .grid2.wide { grid-template-columns:1fr; } }
+table { width:100%; border-collapse:collapse; font-size:13px; } th, td { text-align:left; padding:5px 6px; border-bottom:1px solid var(--line); }
+th { color:var(--mute); font-weight:600; } td.n, th.n { text-align:right; font-variant-numeric:tabular-nums; }
+.bar { height:14px; background:var(--accent); border-radius:3px; } .barrow { display:grid; grid-template-columns:90px 1fr 70px; gap:8px; align-items:center; font-size:13px; margin:4px 0; }
+.note { color:var(--mute); font-size:13px; margin-top:8px; }
+.scroll { overflow-x:auto; }
+</style>
+</head>
+<body>
+<main>
+<h1>bsx-swap-tracker</h1>
+<p class="sub" id="intro"></p>
+
+<section id="quality">
+  <h2>Measured quality <span class="tag real">REAL</span></h2>
+  <div class="kpis" id="kpis"></div>
+</section>
+
+<section>
+  <h2>Completed swaps per day <span class="tag real">REAL</span></h2>
+  <p class="note" style="margin-top:0">Top-tier lock spends (completed swaps) per UTC day and chain, from <code>daily_swaps.csv</code>. Hover for the day's numbers; click a chain to hide it.</p>
+  <div class="controls" id="chains"></div>
+  <div class="controls" id="ranges"></div>
+  <div class="chart" id="realchart"><div class="tip" id="tip"></div></div>
+</section>
+
+<section>
+  <h2>Chains and pairs <span class="tag real">REAL</span></h2>
+  <div class="grid2 wide" style="margin-top:12px">
+    <div><h3>Per chain: completed, refunded, lock-to-spend minutes</h3><div class="scroll"><table id="rchains"></table></div></div>
+    <div><h3>Per offer pair (offer-matched swaps)</h3><div class="scroll"><table id="rpairs"></table></div>
+      <p class="note">Volume and lock size in base units of the scripted coin (satoshi); empty where fewer than 3 swaps would make one swap readable.</p></div>
+    <div id="makerbox" style="display:none"><h3>Makers (offer-matched swaps)</h3><div class="scroll"><table id="rmakers"></table></div></div>
+    <div id="earlybox" style="display:none;grid-column:1/-1"><h3>Early lock flags (latest)</h3><div class="scroll"><table id="rearly"></table></div></div>
+  </div>
+</section>
+
+<section id="synsec">
+  <h2>Synthetic market <span class="tag syn">SYNTHETIC</span></h2>
+  <p class="note" style="margin-top:0" id="synsum"></p>
+  <div class="grid2" style="margin-top:12px">
+    <div><h3>Pairs</h3><div class="scroll"><table id="pairs"></table></div></div>
+    <div><h3>Fill rate by offer size (USD) - the quoting question</h3><div id="fill"></div>
+      <p class="note">Share of offers in each size bucket that ended in a swap. A market maker sizes and prices quotes from curves like this one.</p></div>
+    <div><h3>Maker share of volume</h3><div id="makers"></div></div>
+    <div style="grid-column:1/-1"><h3>Early warning: lock seen before the swap completes</h3><div id="lead"></div>
+      <div class="scroll"><table id="flags"></table></div></div>
+  </div>
+</section>
+<p class="note" id="foot"></p>
+</main>
+<script>
+const D = /*DATA*/null;
+const CH = ["BTC", "LTC", "PART", "BCH"];
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const fmt = (x, d = 0) => Number(x).toLocaleString("en-US", {maximumFractionDigits: d, minimumFractionDigits: d});
+const el = (t, a = {}, h = "") => { const e = document.createElement(t); Object.assign(e, a); if (h) e.innerHTML = h; return e; };
+
+const OWN = D.mode === "own";
+document.getElementById("intro").innerHTML = OWN ? "Your own tracker data: aggregates from <code>bsx-swap-tracker report</code>. Local view; keep it private if it lists makers." :
+  "What the tracker measures about BasicSwap atomic swaps on public chains. The REAL sections use the aggregate datasets that ship with the repository (output of <code>bsx-swap-tracker report --public</code>); the SYNTHETIC section is a market generated by <code>demo/make_demo.py</code> to show the market-making views without publishing anyone's records.";
+document.getElementById("foot").textContent = OWN ? "Built by demo/make_demo.py --own; no network requests." : "Generated from the repository's datasets; no network requests. Synthetic makers, offers and swaps are invented and labelled as such.";
+if (OWN) { document.querySelectorAll(".tag.real").forEach(t => t.textContent = "YOUR DATA"); document.getElementById("quality").style.display = "none"; document.getElementById("synsec").style.display = "none"; }
+const table = (id, cols, rows) => { document.getElementById(id).innerHTML = "<tr>" + cols.map(c => "<th" + (c[2] ? " class=n" : "") + ">" + c[1] + "</th>").join("") + "</tr>" +
+  rows.map(r => "<tr>" + cols.map(c => "<td" + (c[2] ? " class=n" : "") + ">" + (c[2] && r[c[0]] !== "" && r[c[0]] !== undefined ? fmt(r[c[0]], c[3] || 0) : (r[c[0]] ?? "")) + "</td>").join("") + "</tr>").join(""); };
+table("rchains", [["chain", "Chain"], ["completed", "Completed", 1], ["refunded", "Refunded", 1], ["refund_pct", "Refund %", 1, 2], ["lock_to_spend_min_p10", "p10 min", 1, 1], ["lock_to_spend_min_p50", "p50 min", 1, 1], ["lock_to_spend_min_p90", "p90 min", 1, 1], ["first_day", "Since"]], D.chains);
+table("rpairs", [["pair", "Pair"], ["direction", "Dir."], ["swaps", "Swaps", 1], ["refunds", "Refunds", 1], ["scripted_coin_volume_base_units", "Volume", 1], ["median_lock_base_units", "Med. lock", 1], ["median_lock_to_spend_min", "Med. min", 1, 1]], D.pairs);
+if (D.makers && D.makers.length) { document.getElementById("makerbox").style.display = ""; table("rmakers", [["maker", "Maker"], ["swaps", "Swaps", 1], ["share_pct", "Share %", 1, 2], ["volume_base_units", "Volume"]], D.makers); }
+if (D.early && D.early.length) { document.getElementById("earlybox").style.display = ""; table("rearly", [["coin", "Chain"], ["lock_sat", "Lock", 1], ["cf", "From"], ["ct", "To"], ["status", "Status"], ["first_stage", "Seen in"], ["addr", "Maker"]], D.early.slice().reverse()); }
+
+if (!OWN) (function kpis() {
+  const v = D.validation, r = v.recall_completed_swaps, e = v.early_detection_btc, c = v.cpp_vs_python;
+  const items = [
+    [fmt(r.BTC.recall * 100, 1) + " %", "BTC recall of completed swaps (" + r.BTC.hits + "/" + r.BTC.of + ", CI " + fmt(r.BTC.ci95[0] * 100, 1) + "-" + fmt(r.BTC.ci95[1] * 100, 1) + ")"],
+    [fmt(e.precision * 100, 1) + " %", "early-detection precision at lock time (" + e.hits + "/" + e.of + ")"],
+    [fmt(e.minutes_gained_lock_to_spend_p10_p50_p90[1], 1) + " min", "median warning before completion (p10 " + e.minutes_gained_lock_to_spend_p10_p50_p90[0] + ", p90 " + e.minutes_gained_lock_to_spend_p10_p50_p90[2] + ")"],
+    [c.corpus_parse_and_events.identical + "/" + c.corpus_parse_and_events.blocks, "test blocks where C++ equals the Python reference (19 of them ship in fixtures/)"],
+    [fmt(c.shadow_runs.rows_compared) , "rows compared in shadow runs, " + c.shadow_runs.different + " different"],
+  ];
+  const k = document.getElementById("kpis");
+  for (const [b, s] of items) k.append(el("div", {className: "kpi"}, "<b>" + b + "</b><span>" + s + "</span>"));
+})();
+
+(function realChart() {
+  const rows = D.real_daily, days = [...new Set(rows.map(r => r.day))].sort();
+  const all = []; { const a = new Date(days[0] + "T00:00:00Z"), b = new Date(days[days.length - 1] + "T00:00:00Z");
+    for (let t = a; t <= b; t = new Date(t.getTime() + 86400000)) all.push(t.toISOString().slice(0, 10)); }
+  const by = {}; for (const r of rows) (by[r.day] = by[r.day] || {})[r.chain] = r;
+  const on = Object.fromEntries(CH.map(c => [c, true])); let range = 180;
+  const box = document.getElementById("realchart"), tip = document.getElementById("tip");
+  const chips = document.getElementById("chains"), rng = document.getElementById("ranges");
+  for (const c of CH) { const b = el("button", {className: "on"}, '<span class="chip" style="background:' + css("--c-" + c) + '"></span>' + c);
+    b.onclick = () => { on[c] = !on[c]; b.classList.toggle("on", on[c]); draw(); }; chips.append(b); }
+  for (const [lab, n] of [["All", 0], ["180 days", 180], ["90 days", 90], ["30 days", 30]]) {
+    const b = el("button", {className: n === 180 ? "on" : ""}, lab);
+    b.onclick = () => { range = n; [...rng.children].forEach(x => x.classList.remove("on")); b.classList.add("on"); draw(); }; rng.append(b); }
+  function draw() {
+    box.querySelector("svg")?.remove();
+    const ds = range ? all.slice(-range) : all, W = 1000, H = 300, L = 44, R = 8, T = 10, B = 26;
+    const tot = d => CH.reduce((s, c) => s + (on[c] && by[d] && by[d][c] ? by[d][c].completed : 0), 0);
+    const max = Math.max(1, ...ds.map(tot)), step = Math.pow(10, Math.floor(Math.log10(max))), top = Math.ceil(max / step) * step;
+    const bw = (W - L - R) / ds.length, y = v => T + (H - T - B) * (1 - v / top);
+    let s = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Completed swaps per day">';
+    for (let i = 0; i <= 4; i++) { const v = top * i / 4; s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y(v) + '" y2="' + y(v) + '" stroke="' + css("--line") + '"/>' +
+      '<text x="' + (L - 6) + '" y="' + (y(v) + 4) + '" text-anchor="end" font-size="11" fill="' + css("--mute") + '">' + fmt(v) + '</text>'; }
+    ds.forEach((d, i) => { let acc = 0; const x = L + i * bw;
+      for (const c of CH) { const n = on[c] && by[d] && by[d][c] ? by[d][c].completed : 0; if (!n) continue;
+        s += '<rect x="' + (x + bw * 0.1) + '" y="' + y(acc + n) + '" width="' + Math.max(1, bw * 0.8) + '" height="' + (y(acc) - y(acc + n)) + '" fill="' + css("--c-" + c) + '"/>'; acc += n; }
+      if (i % Math.ceil(ds.length / 8) === 0) s += '<text x="' + (x + bw / 2) + '" y="' + (H - 8) + '" text-anchor="middle" font-size="11" fill="' + css("--mute") + '">' + d.slice(5) + '</text>'; });
+    s += '<rect id="hit" x="' + L + '" y="' + T + '" width="' + (W - L - R) + '" height="' + (H - T - B) + '" fill="transparent"/></svg>';
+    box.insertAdjacentHTML("afterbegin", s);
+    const svg = box.querySelector("svg");
+    svg.onmousemove = ev => { const r = svg.getBoundingClientRect(), xs = (ev.clientX - r.left) * W / r.width, i = Math.floor((xs - L) / bw);
+      if (i < 0 || i >= ds.length) { tip.style.display = "none"; return; } const d = ds[i];
+      tip.innerHTML = "<b>" + d + "</b><br>" + CH.filter(c => on[c]).map(c => { const v = by[d] && by[d][c]; return '<span class="chip" style="background:' + css("--c-" + c) + '"></span>' + c + ": " + (v ? v.completed + " completed, " + v.refunded + " refunded" : "0"); }).join("<br>");
+      tip.style.display = "block"; const tx = ev.clientX - r.left + 12; tip.style.left = Math.min(tx, r.width - tip.offsetWidth - 4) + "px"; tip.style.top = (ev.clientY - r.top + 12) + "px"; };
+    svg.onmouseleave = () => tip.style.display = "none";
+  }
+  draw();
+})();
+
+if (!OWN) (function synthetic() {
+  const S = D.synthetic;
+  document.getElementById("synsum").textContent = S.n.makers + " invented makers, " + fmt(S.n.offers) + " offers and " + fmt(S.n.swaps) + " swaps over 60 days, drawn from parameters calibrated on the real measurements (lock-to-spend minutes, refund share, early-detection recall and precision).";
+  const pt = document.getElementById("pairs");
+  pt.innerHTML = "<tr><th>Pair</th><th class=n>Swaps</th><th class=n>Volume USD</th><th class=n>Median USD</th><th class=n>Refunded</th></tr>" +
+    S.pairs.map(p => "<tr><td>" + p.pair + "</td><td class=n>" + fmt(p.swaps) + "</td><td class=n>" + fmt(p.usd) + "</td><td class=n>" + fmt(p.median_usd) + "</td><td class=n>" + p.refunded + "</td></tr>").join("");
+  const bars = (id, rows, lab, val, txt) => { const m = Math.max(...rows.map(val)); const e = document.getElementById(id);
+    for (const r of rows) e.append(el("div", {className: "barrow"}, "<span>" + lab(r) + "</span><div class=bar style='width:" + (100 * val(r) / m) + "%'></div><span style='text-align:right'>" + txt(r) + "</span>")); };
+  bars("fill", S.fill, r => r.bucket, r => r.filled / Math.max(1, r.offers), r => fmt(100 * r.filled / Math.max(1, r.offers), 1) + " %");
+  const totU = S.makers.reduce((s, r) => s + r.usd, 0);
+  bars("makers", S.makers, r => r.maker, r => r.usd, r => fmt(100 * r.usd / totU, 1) + " %");
+  const l = S.lead_p10_p50_p90;
+  document.getElementById("lead").innerHTML = "<p class=note style='margin-top:0'>A lock is flagged when it appears (mempool or block) and matches exactly one live offer. Warning before completion: p10 " + l[0] + " min, median " + l[1] + " min, p90 " + l[2] + " min. Latest flags:</p>";
+  document.getElementById("flags").innerHTML = "<tr><th>Seen (synthetic time)</th><th>Pair</th><th class=n>USD</th><th>Maker</th><th>Outcome</th><th class=n>Min ahead</th></tr>" +
+    S.flags.slice().reverse().map(f => "<tr><td>" + new Date(f.seen * 1000).toISOString().slice(5, 16).replace("T", " ") + "</td><td>" + f.pair + "</td><td class=n>" + fmt(f.usd) + "</td><td>" + f.maker + "</td><td>" + f.status + "</td><td class=n>" + f.minutes_ahead + "</td></tr>").join("");
+})();
+</script>
+</body>
+</html>

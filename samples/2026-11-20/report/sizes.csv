@@ -1,0 +1,10 @@
+chain,lock_base_units,completed,refunded,offer_matched
+BTC,1e5-1e6,61,0,0
+BTC,1e6-1e7,41,1,0
+BTC,1e7-1e8,10,0,0
+BTC,1e8-1e9,20,0,0
+LTC,1e5-1e6,1,0,0
+LTC,1e6-1e7,4,0,0
+LTC,1e7-1e8,4,0,0
+LTC,1e8-1e9,11,0,0
+LTC,1e9-1e10,8,1,0

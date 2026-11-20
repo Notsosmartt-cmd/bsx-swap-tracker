@@ -1,0 +1,48 @@
+{
+ "updated": "2026-11-20T18:28:02+00:00",
+ "started": "2026-11-20T18:18:02+00:00",
+ "impl": "c++",
+ "offers_amounts": 0,
+ "offers_loaded_age_s": 0,
+ "snapshots": 0,
+ "coins": {
+  "BTC": {
+   "connected_since": "2026-11-20T18:19:14+00:00",
+   "last_msg_utc": "2026-11-20T18:27:59+00:00",
+   "blocks": 1,
+   "last_block": {
+    "hash": "00000000000000000001a372c89aa57b8ac537f3ac2e409494a91d92ec51f042",
+    "height": 976768,
+    "txs": 7694,
+    "at": "2026-11-20T18:18:47+00:00",
+    "matches": 0
+   },
+   "txs": 8366,
+   "tx_parse_errors": 0,
+   "amount_matches": 0,
+   "flags": 0,
+   "reconnects": 1,
+   "last_error": "2026-11-20T18:19:09Z peer closed the connection",
+   "scan_triggers": 0
+  },
+  "LTC": {
+   "connected_since": "2026-11-20T18:18:02+00:00",
+   "last_msg_utc": "2026-11-20T18:27:57+00:00",
+   "blocks": 6,
+   "last_block": {
+    "hash": "673a3e14d3044735efd1acb618c38730bc9a18f565105c66f180a158efddfcbd",
+    "height": 3216434,
+    "txs": 5,
+    "at": "2026-11-20T18:27:32+00:00",
+    "matches": 0
+   },
+   "txs": 1308,
+   "tx_parse_errors": 0,
+   "amount_matches": 0,
+   "flags": 0,
+   "reconnects": 0,
+   "last_error": null,
+   "scan_triggers": 0
+  }
+ }
+}

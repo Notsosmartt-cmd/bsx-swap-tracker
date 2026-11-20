@@ -1,0 +1,9 @@
+day,chain,completed,refunded,secret_hash_redeems_any_protocol,bch_covenant_spends,offer_matched,offer_matched_usd
+2026-11-17,BTC,1,0,1,0,0,
+2026-11-17,LTC,4,0,0,0,0,
+2026-11-18,BTC,80,1,30,0,0,
+2026-11-18,LTC,13,0,0,0,0,
+2026-11-19,BTC,23,2,42,0,0,
+2026-11-19,LTC,6,1,0,0,0,
+2026-11-20,BTC,28,0,34,0,0,
+2026-11-20,LTC,5,1,1,0,0,

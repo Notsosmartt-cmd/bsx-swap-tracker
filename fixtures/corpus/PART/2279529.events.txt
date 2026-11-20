@@ -1,0 +1,1 @@
+ev adaptor_lock_spend strong 77590aec6385f4dce6b8eb72310dc8e919890a6cd0c6bd0b66401a64bdcfd86c 0 -

@@ -1,0 +1,23 @@
+name: ci
+on:
+  push:
+  pull_request:
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: packages
+        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build g++ clang libsqlite3-dev zlib1g-dev libssl-dev python3
+      - name: checks (build, self-test, corpus parity, python tests, demo, ASCII, sanitizers, 60 s fuzz smoke per target)
+        run: ASAN=1 FUZZ_SECONDS=60 bash ci/run_checks.sh
+  walkthrough:
+    # the live steps of docs/walkthrough.md on a clean machine: public Bitcoin and Litecoin peers, no Ninja (make fallback)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: packages
+        run: sudo apt-get update && sudo apt-get install -y cmake g++ libsqlite3-dev zlib1g-dev libssl-dev python3
+      - name: walkthrough (build, probe, verify, one day of BTC and LTC, watch, report, match, dashboard)
+        run: bash ci/walkthrough.sh

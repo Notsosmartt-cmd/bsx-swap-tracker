@@ -1,0 +1,3 @@
+chain,completed,refunded,refund_pct,first_day,last_day,lock_to_spend_min_p10,lock_to_spend_min_p50,lock_to_spend_min_p90
+BTC,132,3,2.22,2026-11-17,2026-11-20,8.4,18.1,43.1
+LTC,28,2,6.67,2026-11-17,2026-11-20,11.3,18.3,30.0

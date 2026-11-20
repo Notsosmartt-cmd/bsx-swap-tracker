@@ -1,0 +1,13 @@
+chain,kind,tier,events,counted_by_report
+BTC,adaptor_lock_spend,candidate,11932,no
+BTC,adaptor_lock_spend,strong,132,yes
+BTC,htlc_redeem,certain,107,no
+BTC,adaptor_lock_spend,likely,37,no
+BTC,adaptor_refund_spend,certain,3,no
+BTC,adaptor_refund_tx,certain,3,yes
+BTC,htlc_refund,certain,1,no
+LTC,adaptor_lock_spend,candidate,4444,no
+LTC,adaptor_lock_spend,strong,28,yes
+LTC,adaptor_refund_spend,certain,2,no
+LTC,adaptor_refund_tx,certain,2,yes
+LTC,htlc_redeem,certain,1,no
